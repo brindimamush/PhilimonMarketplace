@@ -1,39 +1,34 @@
 # handlers/seller.py
 from datetime import datetime
-from telegram import Update, ReplyKeyboardRemove
-from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import ContextTypes, ConversationHandler
 from database.session import SessionLocal
 from database.models import User, PurchaseRequest, RequestAcceptance, Offer
 from keyboards.seller import get_seller_home_keyboard
 
-# Conversation State for Seller Pricing
 SELLER_PRICE = range(1)
 
 async def handle_seller_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    # Extract request ID from callback data (e.g., "sel_acc_12")
     request_id = int(query.data.replace("sel_acc_", ""))
     tg_id = query.from_user.id
     
     db = SessionLocal()
-    
-    # Find the seller's internal DB ID
     seller = db.query(User).filter(User.telegram_id == tg_id, User.role == 'seller', User.status == 'active').first()
+    
     if not seller:
         await query.message.reply_text("❌ You must be an active seller to accept requests.")
         db.close()
         return ConversationHandler.END
 
-    # Check if the purchase request is still valid and open
     req = db.query(PurchaseRequest).filter(PurchaseRequest.id == request_id).first()
     if not req or req.status != 'REQUEST_OPEN':
         await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ This request is no longer accepting offers.")
         db.close()
         return ConversationHandler.END
 
-    # Check if this seller has already accepted this request
     already_accepted = db.query(RequestAcceptance).filter(
         RequestAcceptance.request_id == request_id,
         RequestAcceptance.seller_id == seller.id
@@ -45,7 +40,6 @@ async def handle_seller_accept(update: Update, context: ContextTypes.DEFAULT_TYP
         db.close()
         return SELLER_PRICE
 
-    # Count how many sellers have already accepted
     acceptance_count = db.query(RequestAcceptance).filter(RequestAcceptance.request_id == request_id).count()
     
     if acceptance_count >= 3:
@@ -53,17 +47,15 @@ async def handle_seller_accept(update: Update, context: ContextTypes.DEFAULT_TYP
         db.close()
         return ConversationHandler.END
 
-    # Record this acceptance (Locking a slot)
     new_acceptance = RequestAcceptance(request_id=request_id, seller_id=seller.id)
     db.add(new_acceptance)
     db.commit()
     
-    # Save request ID contextually for the next state step
     context.user_data['bidding_request_id'] = request_id
     
     await query.message.reply_text(
         "🎉 Slot secured! You are one of the 3 chosen sellers.\n\n"
-        "💰 Please reply with your offer price in ETB (numbers only, e.g., 12000):",
+        "💰 Please reply with your offer price in ETB (numbers only):",
         reply_markup=ReplyKeyboardRemove()
     )
     
@@ -76,29 +68,25 @@ async def process_seller_price(update: Update, context: ContextTypes.DEFAULT_TYP
     tg_id = update.effective_user.id
     
     if not request_id:
-        await update.message.reply_text("❌ Session expired. Please try accepting the request again.", reply_markup=get_seller_home_keyboard())
+        await update.message.reply_text("❌ Session expired.", reply_markup=get_seller_home_keyboard())
         return ConversationHandler.END
 
-    # Basic numeric conversion/validation
     try:
         price = float(price_text.replace(",", "").strip())
     except ValueError:
-        await update.message.reply_text("❌ Invalid price format. Please enter a clean number (e.g., 11850 or 12000):")
+        await update.message.reply_text("❌ Invalid price. Please enter numbers only (e.g., 12000):")
         return SELLER_PRICE
 
     db = SessionLocal()
     seller = db.query(User).filter(User.telegram_id == tg_id).first()
     
-    # Check if an offer from this seller already exists to avoid duplicate logic
     existing_offer = db.query(Offer).filter(Offer.request_id == request_id, Offer.seller_id == seller.id).first()
     
     if existing_offer:
         existing_offer.price = price
         existing_offer.created_at = datetime.utcnow()
         db.commit()
-        await update.message.reply_text("🔄 Your offer price has been successfully updated!", reply_markup=get_seller_home_keyboard())
     else:
-        # Create a clean new offer
         new_offer = Offer(
             request_id=request_id,
             seller_id=seller.id,
@@ -107,7 +95,42 @@ async def process_seller_price(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         db.add(new_offer)
         db.commit()
-        await update.message.reply_text("🚀 Offer submitted successfully! The buyer will review it anonymously.", reply_markup=get_seller_home_keyboard())
+
+    await update.message.reply_text("🚀 Offer submitted successfully!", reply_markup=get_seller_home_keyboard())
+
+    # --- CLEAR DETAILS AUTOMATIC PUSH TO BUYER ---
+    purchase_req = db.query(PurchaseRequest).filter(PurchaseRequest.id == request_id).first()
+    buyer_user = db.query(User).filter(User.id == purchase_req.buyer_id).first()
+    all_offers = db.query(Offer).filter(Offer.request_id == request_id).order_by(Offer.created_at.asc()).all()
+    
+    # Building a highly descriptive caption layout
+    buyer_text = (
+        f"💰 *New Offer Update for Request #{request_id}*\n"
+        f"📦 *Your Requested Quantity:* {purchase_req.quantity}\n\n"
+        f"Here are the current anonymous bidding choices:\n"
+    )
+    
+    keyboard = []
+    labels = ["A", "B", "C"]
+    
+    for i, off in enumerate(all_offers):
+        label = labels[i]
+        buyer_text += f"🔹 *Offer {label}:* {off.price} ETB\n"
+        keyboard.append([InlineKeyboardButton(f"Select Offer {label}", callback_data=f"buy_sel_{off.id}")])
+        
+    buyer_text += "\nClick your preferred price option below to select it and submit the deal to the Admin."
+
+    try:
+        # Send as a clear photo layout containing the original product image
+        await context.bot.send_photo(
+            chat_id=buyer_user.telegram_id,
+            photo=purchase_req.image_file_id,
+            caption=buyer_text,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    except Exception as e:
+        print(f"Error auto-sending clear updates to buyer: {e}")
 
     db.close()
     context.user_data.clear()

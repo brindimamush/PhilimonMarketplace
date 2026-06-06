@@ -7,13 +7,13 @@ from handlers.registration import (
     seller_business_name, seller_phone, seller_location, seller_category,
     switch_mode, BUSINESS_NAME, PHONE, LOCATION, CATEGORY
 )
-from handlers.admin import handle_admin_approval
+from handlers.admin import handle_admin_approval, handle_admin_deal_actions
 
 from handlers.buyer import (
-    start_purchase_request, process_image, process_quantity, cancel_request,
+    start_purchase_request,select_offer, process_image, process_quantity, cancel_request, view_my_requests, handle_offer_selection,
     BUYER_IMAGE, BUYER_QUANTITY
 )
-
+from handlers.seller import handle_seller_accept, process_seller_price, SELLER_PRICE
 
 # Configure logging
 logging.basicConfig(
@@ -50,16 +50,30 @@ def main():
         allow_reentry=True
     )
 
+    # Seller Bidding System Conversation
+    seller_bidding_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(handle_seller_accept, pattern="^sel_acc_")],
+        states={
+            SELLER_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_seller_price)]
+        },
+        fallbacks=[],
+        allow_reentry=True
+    )
+
     # Handlers Registration
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(join_buyer, pattern="^join_buyer$"))
     application.add_handler(seller_conv)
     application.add_handler(buyer_request_conv)
+    application.add_handler(seller_bidding_conv)
+    # CRITICAL: Buyer Select Offer Callback Matcher outside the conversation handler
+    application.add_handler(CallbackQueryHandler(select_offer, pattern="^buy_sel_"))
     application.add_handler(MessageHandler(filters.Regex("^🔄 Switch Mode$"), switch_mode))
     
     # Admin Callbacks
+    application.add_handler(CallbackQueryHandler(handle_admin_deal_actions, pattern="^adm_dl_"))
     application.add_handler(CallbackQueryHandler(handle_admin_approval, pattern="^adm_"))
-
+    
     # Start polling
     print("Bot is up and running...")
     application.run_polling()
