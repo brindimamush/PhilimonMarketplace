@@ -21,17 +21,29 @@ async def check_buyer_role(update: Update) -> User:
 async def start_purchase_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await check_buyer_role(update)
     lang = get_user_lang(update.effective_user.id)
+    if not user: return ConversationHandler.END
     
-    if not user:
-        # Using English fallback here for safety, but you can localize this too
-        await update.message.reply_text("This action is only available for active buyers.")
+    # New Limit Check
+    if not await check_buyer_limit(user.id):
+        await update.message.reply_text("⚠️ You have reached the limit of 3 active requests. Please wait for current deals to close.")
         return ConversationHandler.END
-        
+    
+    # ... rest of your existing logic ...        
     await update.message.reply_text(
         get_text(lang, "buyer_send_image"),
         reply_markup=ReplyKeyboardRemove()
     )
     return BUYER_IMAGE
+# Add this logic to handlers/buyer.py
+async def check_buyer_limit(user_id: int) -> bool:
+    db = SessionLocal()
+    # Count open requests
+    active_count = db.query(PurchaseRequest).filter(
+        PurchaseRequest.buyer_id == user_id,
+        PurchaseRequest.status.in_(["REQUEST_OPEN", "DEAL_PENDING_ADMIN"])
+    ).count()
+    db.close()
+    return active_count < 3  # Limit is 3
 
 async def process_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Get the largest available photo version file_id

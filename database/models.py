@@ -1,6 +1,6 @@
 # database/models.py
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -62,3 +62,27 @@ class Deal(Base):
     seller_id = Column(Integer, ForeignKey('users.id'))
     status = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UserMetrics(Base):
+    __tablename__ = "user_metrics"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    
+    # Buyer Metrics
+    total_requests = Column(Integer, default=0)
+    completed_purchases = Column(Integer, default=0)
+    abandoned_requests = Column(Integer, default=0)
+    buyer_score = Column(Float, default=100.0)
+    
+    # Seller Metrics
+    accepted_requests = Column(Integer, default=0) # Total times 'Accept' clicked
+    submitted_prices = Column(Integer, default=0)  # Total times price submitted
+    completed_sales = Column(Integer, default=0)
+    missed_price_deadlines = Column(Integer, default=0)
+    seller_score = Column(Float, default=100.0)
+    
+    # System Controls
+    suspended = Column(Boolean, default=False)
+    suspension_reason = Column(String, nullable=True)
