@@ -146,7 +146,14 @@ async def process_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(get_text(lang, "reject_forwarded_contact"))
         return SHARE_PHONE
         
-    phone = contact.phone_number
+    # 2. Ethiopian Phone Validation (Must start with 251)
+    phone = contact.phone_number.replace("+", "") # Ensure no '+' prefix
+    if not phone.startswith("251"):
+        await update.message.reply_text(
+            "❌ Only Ethiopian phone numbers starting with '251' are accepted."
+        )
+        return SHARE_PHONE
+    
     target_role = context.user_data.get('target_role')
     
     db = SessionLocal()
