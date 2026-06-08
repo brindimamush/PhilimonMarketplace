@@ -2,20 +2,23 @@
 import logging
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 from config import BOT_TOKEN
+
+# Updated imports covering new pipeline
 from handlers.registration import (
-    start, join_buyer, join_seller_start, 
-    seller_business_name, seller_phone, seller_location, seller_category,
-    switch_mode, BUSINESS_NAME, PHONE, LOCATION, CATEGORY
+    start, cmd_menu, cmd_language, cmd_help, handle_language_selection, 
+    handle_role_selection, process_contact, seller_business_name, 
+    seller_location, seller_category, switch_mode,
+    SELECT_LANG, SELECT_ROLE, SHARE_PHONE, BUSINESS_NAME, LOCATION, CATEGORY
 )
 from handlers.admin import handle_admin_approval, handle_admin_deal_actions
 
 from handlers.buyer import (
-    start_purchase_request,select_offer, process_image, process_quantity, cancel_request, view_my_requests, handle_offer_selection,
+    start_purchase_request, select_offer, process_image, process_quantity, 
+    cancel_request, view_my_requests, handle_offer_selection,
     BUYER_IMAGE, BUYER_QUANTITY
 )
 from handlers.seller import handle_seller_accept, process_seller_price, SELLER_PRICE
 
-# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -23,25 +26,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def main():
-    # Build PTB Application 
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Conversation setup for onboarding sellers
-    seller_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(join_seller_start, pattern="^join_seller$")],
+    # Core Onboarding Unified Flow
+    onboarding_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("start", start),
+            CommandHandler("language", cmd_language),
+            MessageHandler(filters.Regex("^(🌐 Language|🌐 ቋንቋ)$"), cmd_language),
+            CallbackQueryHandler(handle_role_selection, pattern="^role_")
+        ],
         states={
+            SELECT_LANG: [CallbackQueryHandler(handle_language_selection, pattern="^lang_")],
+            SELECT_ROLE: [CallbackQueryHandler(handle_role_selection, pattern="^role_")],
+            SHARE_PHONE: [MessageHandler(filters.CONTACT, process_contact)],
             BUSINESS_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_business_name)],
-            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_phone)],
             LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_location)],
             CATEGORY: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_category)],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start)],
         allow_reentry=True
     )
-
-    # Buyer Request Conversation
+    
     buyer_request_conv = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex("^➕ New Request$"), start_purchase_request)],
+        entry_points=[MessageHandler(filters.Regex("^(➕ New Request|➕ አዲስ ጥያቄ)$"), start_purchase_request)],
         states={
             BUYER_IMAGE: [MessageHandler(filters.PHOTO, process_image)],
             BUYER_QUANTITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_quantity)],
@@ -50,7 +58,6 @@ def main():
         allow_reentry=True
     )
 
-    # Seller Bidding System Conversation
     seller_bidding_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(handle_seller_accept, pattern="^sel_acc_")],
         states={
@@ -59,23 +66,27 @@ def main():
         fallbacks=[],
         allow_reentry=True
     )
-
-    # Handlers Registration
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(join_buyer, pattern="^join_buyer$"))
-    application.add_handler(seller_conv)
+    
+    # Core system commands
+    application.add_handler(CommandHandler("menu", cmd_menu))
+    application.add_handler(CommandHandler("help", cmd_help))
+    
+    # Registration Flow
+    application.add_handler(onboarding_conv)
+    
+    # Feature Flows
     application.add_handler(buyer_request_conv)
     application.add_handler(seller_bidding_conv)
-    # CRITICAL: Buyer Select Offer Callback Matcher outside the conversation handler
+    
+    # Button Listeners (English & Amharic Bindings)
     application.add_handler(CallbackQueryHandler(select_offer, pattern="^buy_sel_"))
-    application.add_handler(MessageHandler(filters.Regex("^🔄 Switch Mode$"), switch_mode))
+    application.add_handler(MessageHandler(filters.Regex("^(🔄 Switch Mode|🔄 ሞድ ቀይር)$"), switch_mode))
     
     # Admin Callbacks
     application.add_handler(CallbackQueryHandler(handle_admin_deal_actions, pattern="^adm_dl_"))
     application.add_handler(CallbackQueryHandler(handle_admin_approval, pattern="^adm_"))
     
-    # Start polling
-    print("Bot is up and running...")
+    print("Marketplace upgraded and polling...")
     application.run_polling()
 
 if __name__ == '__main__':

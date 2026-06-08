@@ -10,8 +10,10 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     telegram_id = Column(Integer, unique=True, index=True)
     username = Column(String, nullable=True)
-    role = Column(String) # 'buyer', 'seller', 'admin'
-    status = Column(String) # 'active', 'pending', 'banned'
+    phone = Column(String, nullable=True)      # Moved from SellerProfile
+    language = Column(String, default="en")    # Added language tracking
+    role = Column(String)                      # 'buyer', 'seller', 'admin'
+    status = Column(String)                    # 'active', 'pending', 'banned', 'rejected'
     created_at = Column(DateTime, default=datetime.utcnow)
 
     seller_profile = relationship("SellerProfile", back_populates="user", uselist=False)
@@ -21,8 +23,7 @@ class SellerProfile(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     business_name = Column(String)
-    phone = Column(String)
-    location = Column(String)
+    location = Column(String)                  # Phone removed
     category = Column(String)
 
     user = relationship("User", back_populates="seller_profile")
@@ -33,7 +34,7 @@ class PurchaseRequest(Base):
     buyer_id = Column(Integer, ForeignKey('users.id'))
     image_file_id = Column(String)
     quantity = Column(Integer)
-    status = Column(String) # 'REQUEST_OPEN', 'DEAL_PENDING_ADMIN', 'CLOSED'
+    status = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class RequestAcceptance(Base):
@@ -49,7 +50,7 @@ class Offer(Base):
     request_id = Column(Integer, ForeignKey('purchase_requests.id'))
     seller_id = Column(Integer, ForeignKey('users.id'))
     price = Column(Float)
-    status = Column(String) # 'OFFER_SUBMITTED', 'LOST', 'SELECTED'
+    status = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Deal(Base):
@@ -59,5 +60,5 @@ class Deal(Base):
     offer_id = Column(Integer, ForeignKey('offers.id'))
     buyer_id = Column(Integer, ForeignKey('users.id'))
     seller_id = Column(Integer, ForeignKey('users.id'))
-    status = Column(String) # 'PENDING', 'PAID', 'DELIVERED', 'CANCELLED'
+    status = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)

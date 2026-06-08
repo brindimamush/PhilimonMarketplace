@@ -1,134 +1,223 @@
 # handlers/registration.py
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import ContextTypes, ConversationHandler
 from database.session import SessionLocal
 from database.models import User, SellerProfile
 from keyboards.buyer import get_buyer_home_keyboard
 from keyboards.seller import get_seller_home_keyboard
+from utils.helpers import get_text, get_user_lang
 from config import ADMIN_TELEGRAM_ID
 
-# Conversation States for Seller Profile Setup
-BUSINESS_NAME, PHONE, LOCATION, CATEGORY = range(4)
+# Expanded Conversation States
+SELECT_LANG, SELECT_ROLE, SHARE_PHONE, BUSINESS_NAME, LOCATION, CATEGORY = range(6)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    await update.message.reply_text(get_text(lang, "help_text"), parse_mode="Markdown")
+
+async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
-    username = update.effective_user.username
-    
     db = SessionLocal()
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     
-    if user:
-        # User already exists, guide them to their home menu
-        if user.role == 'buyer':
-            await update.message.reply_text("Welcome back!", reply_markup=get_buyer_home_keyboard())
-        elif user.role == 'seller' and user.status == 'active':
-            await update.message.reply_text("Welcome back!", reply_markup=get_seller_home_keyboard())
-        else:
-            await update.message.reply_text("Your account is pending admin approval.")
+    if not user:
         db.close()
-        return
-
-    # New User Flow
-    keyboard = [
-        [InlineKeyboardButton("Buyer 🛒", callback_data="join_buyer"),
-         InlineKeyboardButton("Seller 🏭", callback_data="join_seller")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Welcome to the Marketplace! Please select your mode:", reply_markup=reply_markup)
+        return await start(update, context) # Fallback to start if not registered
+        
+    lang = user.language
+    if user.role == 'buyer':
+        await update.message.reply_text(get_text(lang, "welcome_back"), reply_markup=get_buyer_home_keyboard(lang))
+    elif user.role == 'seller' and user.status == 'active':
+        await update.message.reply_text(get_text(lang, "welcome_back"), reply_markup=get_seller_home_keyboard(lang))
+    else:
+        await update.message.reply_text(get_text(lang, "pending_admin"))
+    
     db.close()
 
-async def join_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Entry point for users explicitly requesting a language change."""
+    keyboard = [
+        [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
+         InlineKeyboardButton("🇪🇹 አማርኛ", callback_data="lang_am")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Please select your language / እባክዎ ቋንቋዎን ይምረጡ:", reply_markup=reply_markup)
+    return SELECT_LANG
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    telegram_id = update.effective_user.id
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == telegram_id).first()
+    
+    # User Recovery Protocol
+    if user:
+        db.close()
+        await cmd_menu(update, context)
+        return ConversationHandler.END
+
+    db.close()
+    # New User Protocol -> Language First
+    keyboard = [
+        [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
+         InlineKeyboardButton("🇪🇹 አማርኛ", callback_data="lang_am")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Welcome! Please select your language:\nእንኳን ደህና መጡ! እባክዎ ቋንቋዎን ይምረጡ፡", reply_markup=reply_markup)
+    return SELECT_LANG
+
+async def handle_language_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    lang_choice = query.data.split("_")[1] # 'en' or 'am'
+    context.user_data['lang'] = lang_choice
+    
+    # Update DB if user exists (i.e., triggered by /language command)
     db = SessionLocal()
-    # Auto-approve buyer
+    user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+    if user:
+        user.language = lang_choice
+        db.commit()
+        db.close()
+        await query.message.delete()
+        # Automatically restore their menu with the new language
+        class FakeUpdate:
+            effective_user = update.effective_user
+            message = query.message # Reuse previous message object reference
+        await cmd_menu(FakeUpdate, context) 
+        return ConversationHandler.END
+        
+    db.close()
+
+    # If new user, proceed to role selection
+    keyboard = [
+        [InlineKeyboardButton(get_text(lang_choice, "buyer_btn"), callback_data="role_buyer"),
+         InlineKeyboardButton(get_text(lang_choice, "seller_btn"), callback_data="role_seller")]
+    ]
+    await query.edit_message_text(get_text(lang_choice, "select_mode"), reply_markup=InlineKeyboardMarkup(keyboard))
+    return SELECT_ROLE
+
+# handlers/registration.py
+
+async def handle_role_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    target_role = query.data.split("_")[1]
+    context.user_data['target_role'] = target_role
+    
+    # Try to get language from DB first, fallback to context
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+    lang = user.language if user else context.user_data.get('lang', 'en')
+    
+    await query.message.delete()
+    
+    # Smart Registration (Phase 3 Scenario A)
+    # If user is a buyer applying to be a seller and already has a phone number -> Skip to Business Name
+    if user and user.phone and target_role == 'seller':
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=get_text(lang, "seller_bus_name"),
+            reply_markup=ReplyKeyboardRemove()
+        )
+        db.close()
+        return BUSINESS_NAME
+        
+    db.close()
+
+    # Scenario B: No phone exists. Ask for Contact Verification via Telegram API
+    contact_btn = [[KeyboardButton(text=get_text(lang, "share_phone"), request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(contact_btn, resize_keyboard=True, one_time_keyboard=True)
+    
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=get_text(lang, "share_phone_prompt"),
+        reply_markup=reply_markup
+    )
+    return SHARE_PHONE
+
+async def process_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    contact = update.message.contact
+    lang = context.user_data.get('lang', 'en')
+    
+    # Security Validation: Reject forwarded contacts
+    if contact.user_id != update.effective_user.id:
+        await update.message.reply_text(get_text(lang, "reject_forwarded_contact"))
+        return SHARE_PHONE
+        
+    phone = contact.phone_number
+    target_role = context.user_data.get('target_role')
+    
+    db = SessionLocal()
     new_user = User(
-        telegram_id=query.from_user.id,
-        username=query.from_user.username,
-        role='buyer',
-        status='active'
+        telegram_id=update.effective_user.id,
+        username=update.effective_user.username,
+        phone=phone,
+        language=lang,
+        role=target_role,
+        status='active' if target_role == 'buyer' else 'pending'
     )
     db.add(new_user)
     db.commit()
-    db.close()
     
-    await query.message.delete()
-    await query.message.reply_text("Registered successfully as a Buyer!", reply_markup=get_buyer_home_keyboard())
-
-async def join_seller_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.message.delete()
-    
-    await query.message.reply_text("Let's set up your Seller profile.\nEnter your Business Name:", reply_markup=ReplyKeyboardRemove())
-    return BUSINESS_NAME
+    if target_role == 'buyer':
+        await update.message.reply_text(get_text(lang, "reg_success_buyer"), reply_markup=get_buyer_home_keyboard(lang))
+        db.close()
+        return ConversationHandler.END
+    else:
+        # Seller continues to profile setup
+        await update.message.reply_text(get_text(lang, "seller_bus_name"), reply_markup=ReplyKeyboardRemove())
+        db.close()
+        return BUSINESS_NAME
 
 async def seller_business_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['business_name'] = update.message.text
-    await update.message.reply_text("Enter your Phone Number:")
-    return PHONE
-
-async def seller_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['phone'] = update.message.text
-    await update.message.reply_text("Enter your Location (e.g. Addis Ababa):")
+    lang = get_user_lang(update.effective_user.id)
+    await update.message.reply_text(get_text(lang, "seller_loc"))
     return LOCATION
 
 async def seller_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['location'] = update.message.text
-    await update.message.reply_text("Enter your Product Category (e.g. Electronics, Agri):")
+    lang = get_user_lang(update.effective_user.id)
+    await update.message.reply_text(get_text(lang, "seller_cat"))
     return CATEGORY
 
 async def seller_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['category'] = update.message.text
+    lang = get_user_lang(update.effective_user.id)
     
     db = SessionLocal()
-    # Create user with pending status
-    new_user = User(
-        telegram_id=update.effective_user.id,
-        username=update.effective_user.username,
-        role='seller',
-        status='pending'
-    )
-    db.add(new_user)
-    db.flush() # execution ensures we grab new_user.id
+    user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
     
     profile = SellerProfile(
-        user_id=new_user.id,
+        user_id=user.id,
         business_name=context.user_data['business_name'],
-        phone=context.user_data['phone'],
         location=context.user_data['location'],
         category=context.user_data['category']
     )
     db.add(profile)
     db.commit()
     
-    await update.message.reply_text("Application submitted! Waiting for Admin approval.")
+    await update.message.reply_text(get_text(lang, "seller_app_submitted"), reply_markup=ReplyKeyboardRemove())
     
-    # Send application notification to Admin
+    # Notify Admin
     admin_kb = [
-        [InlineKeyboardButton("Approve ✅", callback_data=f"adm_app_{new_user.id}"),
-         InlineKeyboardButton("Reject ❌", callback_data=f"adm_rej_{new_user.id}")]
+        [InlineKeyboardButton("Approve ✅", callback_data=f"adm_app_{user.id}"),
+         InlineKeyboardButton("Reject ❌", callback_data=f"adm_rej_{user.id}")]
     ]
-    
     admin_text = (
         f"🆕 *New Seller Request*\n\n"
         f"**Business:** {profile.business_name}\n"
         f"**Category:** {profile.category}\n"
         f"**Location:** {profile.location}\n"
-        f"**Phone:** {profile.phone}"
+        f"**Phone:** {user.phone}"
     )
+    await context.bot.send_message(chat_id=ADMIN_TELEGRAM_ID, text=admin_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(admin_kb))
     
-    await context.bot.send_message(
-        chat_id=ADMIN_TELEGRAM_ID, 
-        text=admin_text, 
-        parse_mode="Markdown", 
-        reply_markup=InlineKeyboardMarkup(admin_kb)
-    )
     db.close()
     return ConversationHandler.END
 
-# Mode Switching Logic
 async def switch_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_id = update.effective_user.id
     db = SessionLocal()
@@ -138,23 +227,22 @@ async def switch_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
         return
 
+    lang = user.language
+
     if user.role == 'buyer':
-        # Check if they have an approved seller profile to switch directly
-        # For simplicity in Phase 1, if they want to switch to seller but are registered as buyer, 
-        # let's change their role to seller if they already exist as active seller, or prompt to register.
         profile = db.query(SellerProfile).filter(SellerProfile.user_id == user.id).first()
         if profile and user.status == 'active':
             user.role = 'seller'
             db.commit()
-            await update.message.reply_text("Switched to Seller Mode.", reply_markup=get_seller_home_keyboard())
+            await update.message.reply_text(get_text(lang, "switched_seller"), reply_markup=get_seller_home_keyboard(lang))
         else:
-            # If they are a buyer but never made a seller profile, launch application selection
-            keyboard = [[InlineKeyboardButton("Apply to become Seller 🏭", callback_data="join_seller")]]
-            await update.message.reply_text("You need a Seller account first.", reply_markup=InlineKeyboardMarkup(keyboard))
+            # Need an explicit fallback if they don't have a seller profile
+            keyboard = [[InlineKeyboardButton(get_text(lang, "apply_seller_btn"), callback_data="role_seller")]]
+            await update.message.reply_text(get_text(lang, "need_seller_acc"), reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif user.role == 'seller':
         user.role = 'buyer'
         db.commit()
-        await update.message.reply_text("Switched to Buyer Mode.", reply_markup=get_buyer_home_keyboard())
+        await update.message.reply_text(get_text(lang, "switched_buyer"), reply_markup=get_buyer_home_keyboard(lang))
         
     db.close()

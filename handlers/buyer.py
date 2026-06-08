@@ -4,8 +4,9 @@ from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, Mess
 from database.session import SessionLocal
 from database.models import User, PurchaseRequest, Offer, Deal
 from keyboards.buyer import get_buyer_home_keyboard
-from database.models import Offer, Deal
 from config import ADMIN_TELEGRAM_ID
+from utils.helpers import get_text, get_user_lang
+
 # Conversation States for creating a request
 BUYER_IMAGE, BUYER_QUANTITY = range(2)
 
@@ -19,12 +20,15 @@ async def check_buyer_role(update: Update) -> User:
 
 async def start_purchase_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await check_buyer_role(update)
+    lang = get_user_lang(update.effective_user.id)
+    
     if not user:
+        # Using English fallback here for safety, but you can localize this too
         await update.message.reply_text("This action is only available for active buyers.")
         return ConversationHandler.END
         
     await update.message.reply_text(
-        "📸 Please send an image of the product you want to request:",
+        get_text(lang, "buyer_send_image"),
         reply_markup=ReplyKeyboardRemove()
     )
     return BUYER_IMAGE
@@ -33,19 +37,21 @@ async def process_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Get the largest available photo version file_id
     photo_file_id = update.message.photo[-1].file_id
     context.user_data['request_photo_id'] = photo_file_id
+    lang = get_user_lang(update.effective_user.id)
     
-    await update.message.reply_text("🔢 Great! Now enter the quantity you need (e.g., 50):")
+    await update.message.reply_text(get_text(lang, "buyer_enter_qty"))
     return BUYER_QUANTITY
 
 async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quantity_text = update.message.text
+    tg_id = update.effective_user.id
+    lang = get_user_lang(tg_id)
     
     if not quantity_text.isdigit():
-        await update.message.reply_text("❌ Please enter a valid number for quantity:")
+        await update.message.reply_text(get_text(lang, "buyer_invalid_qty"))
         return BUYER_QUANTITY
         
     quantity = int(quantity_text)
-    tg_id = update.effective_user.id
     
     db = SessionLocal()
     buyer = db.query(User).filter(User.telegram_id == tg_id).first()
@@ -61,8 +67,8 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.commit() # Save to get the new_request.id
     
     await update.message.reply_text(
-        "✅ Your purchase request has been created and broadcasted to active sellers!",
-        reply_markup=get_buyer_home_keyboard()
+        get_text(lang, "buyer_req_created"),
+        reply_markup=get_buyer_home_keyboard(lang)
     )
     
     # 2. Broadcast to All Active Sellers (Phase 3)
@@ -90,7 +96,6 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=reply_markup
             )
         except Exception as e:
-            # Prevent one bad chat ID from breaking the whole broadcast loop
             print(f"Failed to send broadcast to seller {seller.telegram_id}: {e}")
             
     db.close()
@@ -98,7 +103,8 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def cancel_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Request creation cancelled.", reply_markup=get_buyer_home_keyboard())
+    lang = get_user_lang(update.effective_user.id)
+    await update.message.reply_text(get_text(lang, "req_cancelled"), reply_markup=get_buyer_home_keyboard(lang))
     context.user_data.clear()
     return ConversationHandler.END
 
