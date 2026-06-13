@@ -1,5 +1,5 @@
 # database/models.py
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -36,6 +36,11 @@ class PurchaseRequest(Base):
     quantity = Column(Integer)
     status = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+    selected_offer_at = Column(DateTime, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+    buyer_completed = Column(Boolean, default=False)
+    buyer_abandoned = Column(Boolean, default=False)
 
 class RequestAcceptance(Base):
     __tablename__ = 'request_acceptances'
@@ -43,6 +48,8 @@ class RequestAcceptance(Base):
     request_id = Column(Integer, ForeignKey('purchase_requests.id'))
     seller_id = Column(Integer, ForeignKey('users.id'))
     accepted_at = Column(DateTime, default=datetime.utcnow)
+    price_submitted = Column(Boolean, default=False)
+    deadline_at = Column(DateTime)
 
 class Offer(Base):
     __tablename__ = 'offers'
@@ -86,3 +93,5 @@ class UserMetrics(Base):
     # System Controls
     suspended = Column(Boolean, default=False)
     suspension_reason = Column(String, nullable=True)
+    suspended_at = Column(DateTime, nullable=True)
+    suspended_by = Column(Integer, nullable=True)

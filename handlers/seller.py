@@ -1,11 +1,11 @@
 # handlers/seller.py
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler
 from database.session import SessionLocal
 from database.models import User, PurchaseRequest, RequestAcceptance, Offer
 from keyboards.seller import get_seller_home_keyboard
-
+from services.seller_reliability_service import check_seller_status, update_seller_score
 SELLER_PRICE = range(1)
 
 async def handle_seller_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -42,17 +42,25 @@ async def handle_seller_accept(update: Update, context: ContextTypes.DEFAULT_TYP
 
     acceptance_count = db.query(RequestAcceptance).filter(RequestAcceptance.request_id == request_id).count()
     
+    is_active, warning, allowed_bids = check_seller_status(seller.id)
+    if not is_active:
+        await query.message.reply_text(warning)
+        return ConversationHandler.END
+        
+    if warning:
+        await context.bot.send_message(chat_id=seller.telegram_id, text=warning)
+
     if acceptance_count >= 3:
         await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ Slots full! 3 sellers have already taken this deal.")
         db.close()
         return ConversationHandler.END
 
-    new_acceptance = RequestAcceptance(request_id=request_id, seller_id=seller.id)
+    new_acceptance = RequestAcceptance(request_id=request_id, seller_id=seller.id, deadline_at=datetime.utcnow() + timedelta(minutes=30))
     db.add(new_acceptance)
     db.commit()
     
     context.user_data['bidding_request_id'] = request_id
-    
+    update_seller_score(seller.id, 0, 'accepted_requests')
     await query.message.reply_text(
         "🎉 Slot secured! You are one of the 3 chosen sellers.\n\n"
         "💰 Please reply with your offer price in ETB (numbers only):",
@@ -79,6 +87,16 @@ async def process_seller_price(update: Update, context: ContextTypes.DEFAULT_TYP
 
     db = SessionLocal()
     seller = db.query(User).filter(User.telegram_id == tg_id).first()
+    acceptance = db.query(RequestAcceptance).filter(
+        RequestAcceptance.request_id == request_id, 
+        RequestAcceptance.seller_id == seller.id
+    ).first()
+    
+    if acceptance:
+        acceptance.price_submitted = True
+        db.commit()
+
+    update_seller_score(seller.id, 1, 'submitted_prices')
     
     existing_offer = db.query(Offer).filter(Offer.request_id == request_id, Offer.seller_id == seller.id).first()
     

@@ -2,8 +2,9 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from database.session import SessionLocal
-from database.models import User,Deal, PurchaseRequest
+from database.models import User,Deal, PurchaseRequest, UserMetrics
 from keyboards.seller import get_seller_home_keyboard
+from config import ADMIN_TELEGRAM_ID
 
 async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -132,4 +133,28 @@ async def handle_admin_deal_actions(update: Update, context: ContextTypes.DEFAUL
             await context.bot.send_message(chat_id=buyer.telegram_id, text=f"❌ Admin has cancelled Deal #{deal_id}.")
             await context.bot.send_message(chat_id=seller.telegram_id, text=f"❌ Admin has cancelled Deal #{deal_id}.")
 
+    db.close()
+
+
+async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_TELEGRAM_ID:
+        return
+
+    db = SessionLocal()
+    total_buyers = db.query(User).filter(User.role == 'buyer').count()
+    total_sellers = db.query(User).filter(User.role == 'seller').count()
+    active_requests = db.query(PurchaseRequest).filter(PurchaseRequest.status == 'REQUEST_OPEN').count()
+    completed_deals = db.query(Deal).filter(Deal.status == 'DELIVERED').count()
+    suspended_users = db.query(UserMetrics).filter(UserMetrics.suspended == True).count()
+
+    stats_text = (
+        f"📊 *Marketplace Analytics*\n\n"
+        f"👥 *Buyers:* {total_buyers}\n"
+        f"🏭 *Sellers:* {total_sellers}\n"
+        f"📦 *Active Requests:* {active_requests}\n"
+        f"✅ *Completed Deals:* {completed_deals}\n"
+        f"⛔ *Suspended Users:* {suspended_users}\n"
+    )
+
+    await update.message.reply_text(stats_text, parse_mode="Markdown")
     db.close()    

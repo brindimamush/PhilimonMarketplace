@@ -6,6 +6,7 @@ from database.models import User, PurchaseRequest, Offer, Deal
 from keyboards.buyer import get_buyer_home_keyboard
 from config import ADMIN_TELEGRAM_ID
 from utils.helpers import get_text, get_user_lang
+from services.buyer_reliability_service import can_create_request
 
 # Conversation States for creating a request
 BUYER_IMAGE, BUYER_QUANTITY = range(2)
@@ -22,13 +23,18 @@ async def start_purchase_request(update: Update, context: ContextTypes.DEFAULT_T
     user = await check_buyer_role(update)
     lang = get_user_lang(update.effective_user.id)
     if not user: return ConversationHandler.END
+
+    can_create, message = can_create_request(user.id)
+    if not can_create:
+        await update.message.reply_text(message)
+        return ConversationHandler.END
     
     # New Limit Check
     if not await check_buyer_limit(user.id):
         await update.message.reply_text("⚠️ You have reached the limit of 3 active requests. Please wait for current deals to close.")
         return ConversationHandler.END
     
-    # ... rest of your existing logic ...        
+            
     await update.message.reply_text(
         get_text(lang, "buyer_send_image"),
         reply_markup=ReplyKeyboardRemove()

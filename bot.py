@@ -2,6 +2,8 @@
 import logging
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 from config import BOT_TOKEN
+from services.scheduler import start_scheduler
+from handlers.admin import admin_dashboard
 
 # Updated imports covering new pipeline
 from handlers.registration import (
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-
+    start_scheduler()
     # Core Onboarding Unified Flow
     onboarding_conv = ConversationHandler(
         entry_points=[
@@ -86,6 +88,8 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_admin_deal_actions, pattern="^adm_dl_"))
     application.add_handler(CallbackQueryHandler(handle_admin_approval, pattern="^adm_"))
     
+    application.add_handler(CommandHandler("dashboard", admin_dashboard))
+
     print("Marketplace upgraded and polling...")
     application.run_polling()
 
