@@ -53,7 +53,7 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
             buyer = db.query(User).filter(User.id == deal.buyer_id).first()
             seller = db.query(User).filter(User.id == deal.seller_id).first()
             
-            await query.edit_message_caption(caption=f"{query.message.caption}\n\n🟢 *Deal Completed: Marked Paid!*", parse_mode="Markdown")
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n🟢 *Deal Completed: Marked Paid!*", parse_mode="HTML")
             
             # Message both parties to close out interaction safely
             await context.bot.send_message(chat_id=buyer.telegram_id, text=f"✅ Admin marked Deal #{deal_id} as PAID. Arrangement finalized!")
@@ -72,7 +72,7 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
             buyer = db.query(User).filter(User.id == deal.buyer_id).first()
             seller = db.query(User).filter(User.id == deal.seller_id).first()
             
-            await query.edit_message_caption(caption=f"{query.message.caption}\n\n🔴 *Deal Cancelled by Admin.*", parse_mode="Markdown")
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n🔴 *Deal Cancelled by Admin.*", parse_mode="HTML")
             await context.bot.send_message(chat_id=buyer.telegram_id, text=f"❌ Admin has cancelled Deal #{deal_id}. Your request is reopened.")
             await context.bot.send_message(chat_id=seller.telegram_id, text=f"⚠️ Deal #{deal_id} has been cancelled by the administrator.")
             

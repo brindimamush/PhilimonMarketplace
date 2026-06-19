@@ -177,9 +177,15 @@ async def select_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"**Request ID:** #{req.id}\n"
             f"**Deal ID:** #{new_deal.id}\n"
             f"**Price:** {selected_offer.price} ETB\n"
-            f"**Quantity:** {req.quantity}\n\n"
-            f"👤 *Buyer:* @{buyer.username or 'No Username'} (ID: {buyer.telegram_id})\n"
-            f"🏭 *Seller:* @{seller.username or 'No Username'} (ID: {seller.telegram_id})"
+            f"**Quantity:** {req.quantity}\n\n"f"👤 *Buyer Details*\n"
+            f"• Username: @{buyer.username or 'N/A'}\n"
+            f"• Phone: {buyer.phone or 'N/A'}\n"
+            f"• Telegram ID: `{buyer.telegram_id}`\n\n"
+            f"🏭 *Seller Details*\n"
+            f"• Username: @{seller.username or 'N/A'}\n"
+            f"• Phone: {seller.phone or 'N/A'}\n"
+            f"• DB ID: `{seller.id}`\n"
+            f"• Telegram ID: `{seller.telegram_id}`"
         )
         
         admin_kb = [
@@ -192,11 +198,11 @@ async def select_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=ADMIN_TELEGRAM_ID,
             photo=req.image_file_id,
             caption=admin_text,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(admin_kb)
         )
         
-        await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ *You selected this offer! Sent to Admin for finalization.*", parse_mode="Markdown")
+        await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ *You selected this offer! Sent to Admin for finalization.*", parse_mode="HTML")
         
         # Notify the seller who won the bid
         await context.bot.send_message(
@@ -327,15 +333,22 @@ async def handle_offer_selection(update: Update, context: ContextTypes.DEFAULT_T
         f"🤝 *Deal Selected For Verification*\n\n"
         f"📋 *Request:* #{req.id}\n"
         f"🆔 *Deal reference:* #{new_deal.id}\n"
-        f"👤 *Buyer Link:* [{buyer_user.username or 'No Username'}](tg://user?id={buyer_user.telegram_id})\n"
-        f"🏭 *Seller Link:* [{seller_user.username or 'No Username'}](tg://user?id={seller_user.telegram_id})\n"
-        f"💰 *Final Price:* {offer.price} ETB"
+        f"💰 *Final Price:* {offer.price} ETB\n\n"
+        f"👤 *Buyer Details*\n"
+        f"• Username: @{buyer_user.username or 'N/A'}\n"
+        f"• Phone: {buyer_user.phone or 'N/A'}\n"
+        f"• Telegram ID: `{buyer_user.telegram_id}`\n\n"
+        f"🏭 *Seller Details*\n"
+        f"• Username: @{seller_user.username or 'N/A'}\n"
+        f"• Phone: {seller_user.phone or 'N/A'}\n"
+        f"• DB ID: `{seller_user.id}`\n"
+        f"• Telegram ID: `{seller_user.telegram_id}`"
     )
     
     await context.bot.send_message(
         chat_id=ADMIN_TELEGRAM_ID,
         text=admin_text,
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(admin_kb)
     )
     db.close()
