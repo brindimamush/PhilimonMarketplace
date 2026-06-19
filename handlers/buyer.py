@@ -2,7 +2,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters
 from database.session import SessionLocal
-from database.models import User, PurchaseRequest, Offer, Deal
+from database.models import User, PurchaseRequest, Offer, Deal, SellerProfile
 from keyboards.buyer import get_buyer_home_keyboard
 from config import ADMIN_TELEGRAM_ID
 from utils.helpers import get_text, get_user_lang
@@ -95,11 +95,17 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Approve & Broadcast ✅", callback_data=f"adm_req_app_{new_request.id}"),
          InlineKeyboardButton("Reject ❌", callback_data=f"adm_req_rej_{new_request.id}")]
     ]
-
+    buyer_phone_str = f'<a href="tel:+{buyer.phone}">+{buyer.phone}</a>' if buyer.phone else 'N/A'
     admin_text = (
         f"🔔 *New Buyer Request Pending Approval*\n\n"
-        f"📦 *Quantity:* {quantity}\n"
-        f"👤 *Buyer:* @{buyer.username or 'N/A'} (ID: `{buyer.telegram_id}`)\n\n"
+        f"👤 *Buyer:* {buyer.full_name}\n" 
+        f"• User Name: @{buyer.username or 'N/A'}\n"
+        f"• Phone: {buyer_phone_str}\n"
+        f"• ID: `{buyer.telegram_id}`\n"
+        
+        f"📦 *Quantity:* {quantity}\n\n"
+        
+        
         f"Approve to broadcast this to all active sellers."
     )
     
@@ -166,19 +172,30 @@ async def select_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         seller = db.query(User).filter(User.id == selected_offer.seller_id).first()
         buyer = db.query(User).filter(User.id == req.buyer_id).first()
         
+        
+        # Query Seller Profile to get the Shop Number
+        seller_profile = db.query(SellerProfile).filter(SellerProfile.user_id == seller.id).first()
+        shop_num = seller_profile.shop_number if seller_profile and seller_profile.shop_number else 'N/A'
+        
+        buyer_phone_str = f'<a href="tel:+{buyer.phone}">+{buyer.phone}</a>' if buyer.phone else 'N/A'
+        seller_phone_str = f'<a href="tel:+{seller.phone}">+{seller.phone}</a>' if seller.phone else 'N/A'
         # 4. Construct complete detail dispatch for Admin
         admin_text = (
             f"🤝 *Deal Selected - Action Required*\n\n"
             f"**Request ID:** #{req.id}\n"
             f"**Deal ID:** #{new_deal.id}\n"
             f"**Price:** {selected_offer.price} ETB\n"
-            f"**Quantity:** {req.quantity}\n\n"f"👤 *Buyer Details*\n"
+            f"**Quantity:** {req.quantity}\n\n"
+            f"👤 *Buyer Details*\n"
+            f"• Full Name: {buyer.full_name or 'N/A'}\n"
             f"• Username: @{buyer.username or 'N/A'}\n"
-            f"• Phone: {buyer.phone or 'N/A'}\n"
+            f"• Phone: {buyer_phone_str}\n"
             f"• Telegram ID: `{buyer.telegram_id}`\n\n"
             f"🏭 *Seller Details*\n"
+            f"• Full Name: {seller.full_name or 'N/A'}\n"
+            f"• Shop Number: {shop_num}\n"
             f"• Username: @{seller.username or 'N/A'}\n"
-            f"• Phone: {seller.phone or 'N/A'}\n"
+            f"• Phone: {seller_phone_str}\n"
             f"• DB ID: `{seller.id}`\n"
             f"• Telegram ID: `{seller.telegram_id}`"
         )
@@ -302,6 +319,10 @@ async def handle_offer_selection(update: Update, context: ContextTypes.DEFAULT_T
     buyer_user = db.query(User).filter(User.id == req.buyer_id).first()
     seller_user = db.query(User).filter(User.id == offer.seller_id).first()
     
+    # Query Seller Profile to get the Shop Number
+    seller_profile = db.query(SellerProfile).filter(SellerProfile.user_id == seller_user.id).first()
+    shop_num = seller_profile.shop_number if seller_profile and seller_profile.shop_number else 'N/A'
+
     new_deal = Deal(
         request_id=req.id,
         offer_id=offer.id,
@@ -323,6 +344,9 @@ async def handle_offer_selection(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("Mark Delivered 🚚", callback_data=f"adm_dl_delv_{new_deal.id}")],
         [InlineKeyboardButton("Cancel Deal ❌", callback_data=f"adm_dl_canc_{new_deal.id}")]
     ]
+
+    buyer_phone_str = f'<a href="tel:+{buyer_user.phone}">+{buyer_user.phone}</a>' if buyer_user.phone else 'N/A'
+    seller_phone_str = f'<a href="tel:+{seller_user.phone}">+{seller_user.phone}</a>' if seller_user.phone else 'N/A'
     
     admin_text = (
         f"🤝 *Deal Selected For Verification*\n\n"
@@ -330,12 +354,15 @@ async def handle_offer_selection(update: Update, context: ContextTypes.DEFAULT_T
         f"🆔 *Deal reference:* #{new_deal.id}\n"
         f"💰 *Final Price:* {offer.price} ETB\n\n"
         f"👤 *Buyer Details*\n"
+        f"• Full Name: {buyer_user.full_name or 'N/A'}\n"
         f"• Username: @{buyer_user.username or 'N/A'}\n"
-        f"• Phone: {buyer_user.phone or 'N/A'}\n"
+        f"• Phone: {buyer_phone_str}\n"
         f"• Telegram ID: `{buyer_user.telegram_id}`\n\n"
         f"🏭 *Seller Details*\n"
+        f"• Full Name: {seller_user.full_name or 'N/A'}\n"
+        f"• Shop Number: {shop_num}\n"
         f"• Username: @{seller_user.username or 'N/A'}\n"
-        f"• Phone: {seller_user.phone or 'N/A'}\n"
+        f"• Phone: {seller_phone_str}\n"
         f"• DB ID: `{seller_user.id}`\n"
         f"• Telegram ID: `{seller_user.telegram_id}`"
     )
