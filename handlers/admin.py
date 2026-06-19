@@ -144,7 +144,7 @@ async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_buyers = db.query(User).filter(User.role == 'buyer').count()
     total_sellers = db.query(User).filter(User.role == 'seller').count()
     active_requests = db.query(PurchaseRequest).filter(PurchaseRequest.status == 'REQUEST_OPEN').count()
-    completed_deals = db.query(Deal).filter(Deal.status == 'DELIVERED').count()
+    completed_deals = db.query(Deal).filter(Deal.status == 'PAID').count()
     suspended_users = db.query(UserMetrics).filter(UserMetrics.suspended == True).count()
 
     stats_text = (
