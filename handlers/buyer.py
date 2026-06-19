@@ -74,47 +74,42 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = SessionLocal()
     buyer = db.query(User).filter(User.telegram_id == tg_id).first()
     
-    # 1. Save Request to Database
+    # 1. Save Request to Database with Pending status
     new_request = PurchaseRequest(
         buyer_id=buyer.id,
         image_file_id=context.user_data['request_photo_id'],
         quantity=quantity,
-        status='REQUEST_OPEN'
+        status='PENDING_ADMIN_APPROVAL'
     )
     db.add(new_request)
     db.commit() # Save to get the new_request.id
-    
+
+    #NOTIFY THE BUYER ITS UNDER REVIEW
     await update.message.reply_text(
-        get_text(lang, "buyer_req_created"),
+        "✅ Your purchase request has been submitted and is pending Admin approval.",
         reply_markup=get_buyer_home_keyboard(lang)
     )
-    
-    # 2. Broadcast to All Active Sellers (Phase 3)
-    active_sellers = db.query(User).filter(User.role == 'seller', User.status == 'active').all()
-    
-    # Inline keyboard button for sellers to fight for slots
-    seller_kb = [
-        [InlineKeyboardButton("Accept 🤝", callback_data=f"sel_acc_{new_request.id}")]
+
+    # 2. Forward to Admin for Approval instead of Sellers
+    admin_kb = [
+        [InlineKeyboardButton("Approve & Broadcast ✅", callback_data=f"adm_req_app_{new_request.id}"),
+         InlineKeyboardButton("Reject ❌", callback_data=f"adm_req_rej_{new_request.id}")]
     ]
-    reply_markup = InlineKeyboardMarkup(seller_kb)
-    
-    broadcast_text = (
-        f"🔔 *New Buyer Request!*\n\n"
-        f"📦 *Quantity:* {quantity}\n\n"
-        f"Click 'Accept' below if you want to submit an offer. Only the first 3 sellers can participate!"
+
+    admin_text = (
+        f"🔔 *New Buyer Request Pending Approval*\n\n"
+        f"📦 *Quantity:* {quantity}\n"
+        f"👤 *Buyer:* @{buyer.username or 'N/A'} (ID: `{buyer.telegram_id}`)\n\n"
+        f"Approve to broadcast this to all active sellers."
     )
     
-    for seller in active_sellers:
-        try:
-            await context.bot.send_photo(
-                chat_id=seller.telegram_id,
-                photo=new_request.image_file_id,
-                caption=broadcast_text,
-                parse_mode="Markdown",
-                reply_markup=reply_markup
-            )
-        except Exception as e:
-            print(f"Failed to send broadcast to seller {seller.telegram_id}: {e}")
+    await context.bot.send_photo(
+        chat_id=ADMIN_TELEGRAM_ID,
+        photo=new_request.image_file_id,
+        caption=admin_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(admin_kb)
+    )
             
     db.close()
     context.user_data.clear() # Wipe session data for this request wizard

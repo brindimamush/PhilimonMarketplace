@@ -1,5 +1,5 @@
 # handlers/admin.py
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database.session import SessionLocal
 from database.models import User,Deal, PurchaseRequest, UserMetrics
@@ -39,6 +39,62 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=user.telegram_id,
                 text="❌ Your seller profile application was rejected by the admin."
             )
+    elif data.startswith("adm_req_app_"):
+        req_id = int(data.replace("adm_req_app_", ""))
+        req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
+        
+        if req and req.status == 'PENDING_ADMIN_APPROVAL':
+            # Update status
+            req.status = 'REQUEST_OPEN'
+            db.commit()
+            
+            # Update Admin's UI
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ *Approved & Broadcasted to Sellers!*", parse_mode="Markdown")
+            
+            # Notify Buyer of approval
+            buyer = db.query(User).filter(User.id == req.buyer_id).first()
+            await context.bot.send_message(
+                chat_id=buyer.telegram_id, 
+                text=f"✅ Good news! Your request #{req.id} for {req.quantity} items was approved and is now being broadcasted to sellers."
+            )
+            
+            # Broadcast to All Active Sellers
+            active_sellers = db.query(User).filter(User.role == 'seller', User.status == 'active').all()
+            seller_kb = [[InlineKeyboardButton("Accept 🤝", callback_data=f"sel_acc_{req.id}")]]
+            broadcast_text = (
+                f"🔔 *New Buyer Request!*\n\n"
+                f"📦 *Quantity:* {req.quantity}\n\n"
+                f"Click 'Accept' below if you want to submit an offer. Only the first 3 sellers can participate!"
+            )
+            
+            for seller in active_sellers:
+                try:
+                    await context.bot.send_photo(
+                        chat_id=seller.telegram_id,
+                        photo=req.image_file_id,
+                        caption=broadcast_text,
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup(seller_kb)
+                    )
+                except Exception as e:
+                    print(f"Failed to send broadcast to seller {seller.telegram_id}: {e}")
+
+    elif data.startswith("adm_req_rej_"):
+        req_id = int(data.replace("adm_req_rej_", ""))
+        req = db.query(PurchaseRequest).filter(PurchaseRequest.id == req_id).first()
+        
+        if req and req.status == 'PENDING_ADMIN_APPROVAL':
+            req.status = 'REJECTED'
+            db.commit()
+            
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ *Request Rejected.*", parse_mode="Markdown")
+            
+            buyer = db.query(User).filter(User.id == req.buyer_id).first()
+            await context.bot.send_message(
+                chat_id=buyer.telegram_id, 
+                text=f"❌ Your request #{req.id} was reviewed and rejected by the administrator."
+            )
+
 
     elif data.startswith("adm_paid_"):
         deal_id = int(data.replace("adm_paid_", ""))
