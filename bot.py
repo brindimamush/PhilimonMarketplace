@@ -8,9 +8,9 @@ from handlers.admin import admin_dashboard
 # Updated imports covering new pipeline
 from handlers.registration import (
     start, cmd_menu, cmd_language, cmd_help, handle_language_selection, 
-    handle_role_selection, process_contact, seller_business_name, 
-    seller_location, seller_category, switch_mode,
-    SELECT_LANG, SELECT_ROLE, SHARE_PHONE, BUSINESS_NAME, LOCATION, CATEGORY
+    handle_role_selection, process_contact, seller_business_name, process_full_name, 
+    seller_location, seller_category, seller_shop_number, switch_mode,
+    SELECT_LANG, SELECT_ROLE, SHARE_PHONE,FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER
 )
 from handlers.admin import handle_admin_approval, handle_admin_deal_actions
 
@@ -42,9 +42,11 @@ def main():
             SELECT_LANG: [CallbackQueryHandler(handle_language_selection, pattern="^lang_")],
             SELECT_ROLE: [CallbackQueryHandler(handle_role_selection, pattern="^role_")],
             SHARE_PHONE: [MessageHandler(filters.CONTACT, process_contact)],
+            FULL_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_full_name)],
             BUSINESS_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_business_name)],
             LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_location)],
             CATEGORY: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_category)],
+            SHOP_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_shop_number)],
         },
         fallbacks=[CommandHandler("start", start)],
         allow_reentry=True

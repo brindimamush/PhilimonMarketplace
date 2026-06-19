@@ -107,7 +107,7 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=ADMIN_TELEGRAM_ID,
         photo=new_request.image_file_id,
         caption=admin_text,
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(admin_kb)
     )
             
@@ -246,7 +246,7 @@ async def view_my_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_photo(
                 photo=req.image_file_id,
                 caption=caption_text,
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
         else:
             caption_text += "💰 *Received Offers (Anonymous):*\n"
@@ -264,7 +264,7 @@ async def view_my_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_photo(
                 photo=req.image_file_id,
                 caption=caption_text,
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=reply_markup
             )
             

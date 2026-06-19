@@ -10,6 +10,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     telegram_id = Column(Integer, unique=True, index=True)
     username = Column(String, nullable=True)
+    full_name = Column(String, nullable=True)
     phone = Column(String, nullable=True)      # Moved from SellerProfile
     language = Column(String, default="en")    # Added language tracking
     role = Column(String)                      # 'buyer', 'seller', 'admin'
@@ -25,6 +26,7 @@ class SellerProfile(Base):
     business_name = Column(String)
     location = Column(String)                  # Phone removed
     category = Column(String)
+    shop_number = Column(String, nullable=True)
 
     user = relationship("User", back_populates="seller_profile")
 

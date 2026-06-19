@@ -25,9 +25,11 @@ MESSAGES = {
     "switched_seller": "✅ Switched to Seller Mode.",
     "switched_buyer": "✅ Switched to Buyer Mode.",
     "buyer_send_image": "📸 Please send an image of the product you want to request:",
-    "buyer_enter_qty": "🔢 Great! Now enter the quantity you need (e.g., 50):",
+    "buyer_enter_qty": "🔢 Great! Now enter the quantity you need (e.g., 5):",
     "buyer_invalid_qty": "❌ Please enter a valid number for quantity:",
     "buyer_req_created": "✅ Your purchase request has been created and broadcasted to active sellers!",
     "req_cancelled": "❌ Request creation cancelled.",
-    "help_text": "🛠 *Marketplace Help*\n\n/menu - Show your main menu\n/language - Change your language\n/help - Show this message"
+    "help_text": "🛠 *Marketplace Help*\n\n/menu - Show your main menu\n/language - Change your language\n/help - Show this message",
+    "enter_full_name": "👤 Please enter your Full Name:",
+    "seller_shop_num": "🔢 Please enter your Shop Number (e.g., X0-000X) (or 'N/A' if none):",
 }

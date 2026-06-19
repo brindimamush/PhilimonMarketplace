@@ -49,7 +49,7 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
             db.commit()
             
             # Update Admin's UI
-            await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ *Approved & Broadcasted to Sellers!*", parse_mode="Markdown")
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ *Approved & Broadcasted to Sellers!*", parse_mode="HTML")
             
             # Notify Buyer of approval
             buyer = db.query(User).filter(User.id == req.buyer_id).first()
@@ -73,7 +73,7 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
                         chat_id=seller.telegram_id,
                         photo=req.image_file_id,
                         caption=broadcast_text,
-                        parse_mode="Markdown",
+                        parse_mode="HTML",
                         reply_markup=InlineKeyboardMarkup(seller_kb)
                     )
                 except Exception as e:
@@ -87,7 +87,7 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
             req.status = 'REJECTED'
             db.commit()
             
-            await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ *Request Rejected.*", parse_mode="Markdown")
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ *Request Rejected.*", parse_mode="HTML")
             
             buyer = db.query(User).filter(User.id == req.buyer_id).first()
             await context.bot.send_message(
@@ -212,5 +212,5 @@ async def admin_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⛔ *Suspended Users:* {suspended_users}\n"
     )
 
-    await update.message.reply_text(stats_text, parse_mode="Markdown")
+    await update.message.reply_text(stats_text, parse_mode="HTML")
     db.close()    

@@ -25,9 +25,11 @@ MESSAGES = {
     "switched_seller": "✅ ወደ ሻጭ ሞድ ተቀይሯል።",
     "switched_buyer": "✅ ወደ ገዢ ሞድ ተቀይሯል።",
     "buyer_send_image": "📸 እባክዎ የሚፈልጉትን ምርት ምስል ይላኩ፡",
-    "buyer_enter_qty": "🔢 አሪፍ! አሁን የሚፈልጉትን ብዛት ያስገቡ (ለምሳሌ 50)፡",
+    "buyer_enter_qty": "🔢 አሪፍ! አሁን የሚፈልጉትን ብዛት ያስገቡ (ለምሳሌ 5)፡",
     "buyer_invalid_qty": "❌ እባክዎ ትክክለኛ የብዛት ቁጥር ያስገቡ፡",
     "buyer_req_created": "✅ የግዢ ጥያቄዎ ተፈጥሯል እና ለነቁ ሻጮች ተሰራጭቷል!",
     "req_cancelled": "❌ የጥያቄ ሂደት ተቋርጧል።",
-    "help_text": "🛠 *ማርኬትፕሌስ እርዳታ*\n\n/menu - ዋናውን ሜኑ አሳይ\n/language - ቋንቋ ቀይር\n/help - ይህንን መልዕክት አሳይ"
+    "help_text": "🛠 *ማርኬትፕሌስ እርዳታ*\n\n/menu - ዋናውን ሜኑ አሳይ\n/language - ቋንቋ ቀይር\n/help - ይህንን መልዕክት አሳይ",
+    "enter_full_name": "👤 እባክዎ ሙሉ ስምዎን ያስገቡ፡",
+    "seller_shop_num": "🔢 እባክዎ የሱቅ ቁጥርዎን ያስገቡ ምሳሌ(X0-000X) (ከሌለዎት 'N/A' ይበሉ)፡",
 }

@@ -9,7 +9,7 @@ from utils.helpers import get_text, get_user_lang
 from config import ADMIN_TELEGRAM_ID
 
 # Expanded Conversation States
-SELECT_LANG, SELECT_ROLE, SHARE_PHONE, BUSINESS_NAME, LOCATION, CATEGORY = range(6)
+SELECT_LANG, SELECT_ROLE, SHARE_PHONE, FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER = range(8)
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
@@ -167,15 +167,32 @@ async def process_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     db.add(new_user)
     db.commit()
-    
+    db.close()
+
+    await update.message.reply_text(
+        get_text(lang, "enter_full_name"),
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return FULL_NAME
+
+async def process_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    full_name = update.message.text
+    lang = context.user_data.get('lang', 'en')
+    target_role = context.user_data.get('target_role')
+
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+    if user:
+        user.full_name = full_name
+        db.commit()
+    db.close()
+
     if target_role == 'buyer':
         await update.message.reply_text(get_text(lang, "reg_success_buyer"), reply_markup=get_buyer_home_keyboard(lang))
-        db.close()
         return ConversationHandler.END
     else:
         # Seller continues to profile setup
         await update.message.reply_text(get_text(lang, "seller_bus_name"), reply_markup=ReplyKeyboardRemove())
-        db.close()
         return BUSINESS_NAME
 
 async def seller_business_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -193,6 +210,13 @@ async def seller_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def seller_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['category'] = update.message.text
     lang = get_user_lang(update.effective_user.id)
+    # Route to shop number instead of finishing
+    await update.message.reply_text(get_text(lang, "seller_shop_num"))
+    return SHOP_NUMBER
+
+async def seller_shop_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['shop_number'] = update.message.text
+    lang = get_user_lang(update.effective_user.id)
     
     db = SessionLocal()
     user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
@@ -201,21 +225,24 @@ async def seller_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id=user.id,
         business_name=context.user_data['business_name'],
         location=context.user_data['location'],
-        category=context.user_data['category']
+        category=context.user_data['category'],
+        shop_number=context.user_data['shop_number']
     )
     db.add(profile)
     db.commit()
     
     await update.message.reply_text(get_text(lang, "seller_app_submitted"), reply_markup=ReplyKeyboardRemove())
     
-    # Notify Admin
+    # Notify Admin (Updated to include Name and Shop Number)
     admin_kb = [
         [InlineKeyboardButton("Approve ✅", callback_data=f"adm_app_{user.id}"),
          InlineKeyboardButton("Reject ❌", callback_data=f"adm_rej_{user.id}")]
     ]
     admin_text = (
         f"🆕 *New Seller Request*\n\n"
+        f"**Name:** {user.full_name}\n"
         f"**Business:** {profile.business_name}\n"
+        f"**Shop No:** {profile.shop_number}\n"
         f"**Category:** {profile.category}\n"
         f"**Location:** {profile.location}\n"
         f"**Phone:** {user.phone}"
