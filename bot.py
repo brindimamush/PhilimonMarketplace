@@ -4,6 +4,9 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from config import BOT_TOKEN
 from services.scheduler import start_scheduler
 from handlers.admin import admin_dashboard
+from handlers.admin_users import search_user
+from handlers.admin_menu import admin_menu
+
 
 # Updated imports covering new pipeline
 from handlers.registration import (
@@ -91,7 +94,8 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_admin_approval, pattern="^adm_"))
     
     application.add_handler(CommandHandler("dashboard", admin_dashboard))
-
+    application.add_handler(CommandHandler("admin", admin_menu))
+    application.add_handler(CommandHandler("user", search_user))
     print("Marketplace upgraded and polling...")
     application.run_polling()
 

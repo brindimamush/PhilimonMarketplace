@@ -1,6 +1,6 @@
 # database/models.py
 from datetime import datetime, timedelta
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -43,6 +43,26 @@ class PurchaseRequest(Base):
     closed_at = Column(DateTime, nullable=True)
     buyer_completed = Column(Boolean, default=False)
     buyer_abandoned = Column(Boolean, default=False)
+    last_activity_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    admin_notes = Column(Text, nullable=True)
+    cancel_reason = Column(String, nullable=True)
+
+class AdminAction(Base):
+    __tablename__ = 'admin_actions'
+    id = Column(Integer, primary_key=True)
+    admin_id = Column(Integer, ForeignKey('users.id'))
+    target_user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    action = Column(String) # 'SUSPEND', 'BAN', 'UNSUSPEND', 'APPROVE_SELLER'
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class RequestHistory(Base):
+    __tablename__ = 'request_history'
+    id = Column(Integer, primary_key=True)
+    request_id = Column(Integer, ForeignKey('purchase_requests.id'))
+    event = Column(String) # 'CREATED', 'APPROVED', 'SELLER_ACCEPTED', 'DEAL_CLOSED'
+    performed_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)    
 
 class RequestAcceptance(Base):
     __tablename__ = 'request_acceptances'
