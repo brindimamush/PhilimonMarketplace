@@ -17,7 +17,7 @@ MESSAGES = {
     "new_request": "➕ New Request",
     "language_btn": "🌐 Language",
     "switch_mode": "🔄 Switch Mode",
-    "my_offers": "💰 My Offers",
+    #"my_offers": "💰 My Offers",
     "welcome_back": "Welcome back!",
     "pending_admin": "⏳ Your account is pending admin approval.",
     "need_seller_acc": "You need a Seller account first.",
@@ -45,4 +45,5 @@ MESSAGES = {
         "C. Repeated failure to respond or complete accepted requests may result in account restrictions."
     ),
     "agree_btn": "I Agree 👍",
+    "seller_approved_mode_switched": "🎉 Congratulations! Your seller profile has been approved, and your active mode has automatically been switched to Seller Mode.",
 }
