@@ -1,6 +1,8 @@
 # handlers/admin.py
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+import asyncio
+from services.broadcast_service import safe_broadcast_to_sellers
 from utils.helpers import get_text
 from database.session import SessionLocal
 from database.models import User,Deal, PurchaseRequest, UserMetrics
@@ -71,17 +73,14 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
                 f"Click 'Accept' below if you want to submit an offer. Only the first 3 sellers can participate!"
             )
             
-            for seller in active_sellers:
-                try:
-                    await context.bot.send_photo(
-                        chat_id=seller.telegram_id,
-                        photo=req.image_file_id,
-                        caption=broadcast_text,
-                        parse_mode="HTML",
-                        reply_markup=InlineKeyboardMarkup(seller_kb)
-                    )
-                except Exception as e:
-                    print(f"Failed to send broadcast to seller {seller.telegram_id}: {e}")
+            asyncio.create_task(
+    safe_broadcast_to_sellers(
+        context=context,
+        photo_id=req.image_file_id,
+        caption=broadcast_text,
+        reply_markup=InlineKeyboardMarkup(seller_kb)
+    )
+)
 
     elif data.startswith("adm_req_rej_"):
         req_id = int(data.replace("adm_req_rej_", ""))
