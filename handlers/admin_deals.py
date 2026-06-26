@@ -33,7 +33,7 @@ async def show_deals_list(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
     
     await update.callback_query.edit_message_text(
         text, 
-        parse_mode="Markdown", 
+        parse_mode="HTML", 
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     db.close()

@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from config import BOT_TOKEN
 from services.scheduler import start_scheduler
 from handlers.admin import admin_dashboard
-from handlers.admin_users import search_user, handle_user_actions, show_users_list
+from handlers.admin_users import search_user, handle_user_actions, show_users_list, show_suspended_users_list
 from handlers.admin_menu import admin_menu, handle_main_menu_callbacks
 from handlers.admin_requests import handle_requests_callbacks
 from handlers.admin_deals import show_deals_list
@@ -39,22 +39,26 @@ async def master_admin_router(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     # ALWAYS answer the query immediately to stop the loading spinner!
     await query.answer()
-
+    try:
     # Route to the correct view based on the button clicked
-    if data in ["adm_menu_main", "adm_menu_search", "adm_menu_stats"]:
-        await handle_main_menu_callbacks(update, context)
+        if data in ["adm_menu_main", "adm_menu_search", "adm_menu_stats"]:
+            await handle_main_menu_callbacks(update, context)
         
-    elif data == "adm_menu_users" or data.startswith("adm_usr_page_"):
-        page = int(data.split("_")[-1]) if "page_" in data else 0
-        await show_users_list(update, context, page)
+        elif data == "adm_menu_users" or data.startswith("adm_usr_page_"):
+            page = int(data.split("_")[-1]) if "page_" in data else 0
+            await show_users_list(update, context, page)
         
-    elif data == "adm_menu_deals" or data.startswith("adm_deal_page_"):
-        page = int(data.split("_")[-1]) if "page_" in data else 0
-        await show_deals_list(update, context, page)
+        elif data == "adm_menu_deals" or data.startswith("adm_deal_page_"):
+            page = int(data.split("_")[-1]) if "page_" in data else 0
+            await show_deals_list(update, context, page)
         
-    elif data == "adm_menu_susp":
-        await query.message.reply_text("⛔ Suspended list view coming next!")
-
+        elif data == "adm_menu_susp" or data.startswith("adm_susp_page_"):
+            page = int(data.split("_")[-1]) if "page_" in data else 0
+            await show_suspended_users_list(update, context, page)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error in master_admin_router: {e}")
+        await query.message.reply_text("❌ An error occurred processing this dashboard view.")
+        
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     start_scheduler()

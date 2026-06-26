@@ -26,9 +26,9 @@ async def show_active_requests(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Dashboard", callback_data="adm_menu_main")]])
         
         if update.callback_query:
-            await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+            await update.callback_query.edit_message_text(text, parse_mode="HTML", reply_markup=reply_markup)
         else:
-            await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+            await update.message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
         db.close()
         return
 
@@ -70,9 +70,9 @@ async def show_active_requests(update: Update, context: ContextTypes.DEFAULT_TYP
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
-        await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+        await update.callback_query.edit_message_text(text, parse_mode="HTML", reply_markup=reply_markup)
     else:
-        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+        await update.message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
         
     db.close()
 
@@ -139,7 +139,7 @@ async def handle_request_action_buttons(update: Update, context: ContextTypes.DE
         await query.message.reply_photo(
             photo=req.image_file_id, 
             caption=detail_text, 
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         await query.answer()
 
@@ -164,7 +164,7 @@ async def handle_request_action_buttons(update: Update, context: ContextTypes.DE
         except Exception:
             pass
 
-        await query.edit_message_text(f"{query.message.text}\n\n❌ *Request #{req.id} Cancelled.*", parse_mode="Markdown")
+        await query.edit_message_text(f"{query.message.text}\n\n❌ *Request #{req.id} Cancelled.*", parse_mode="HTML")
 
     elif action == "ext":
         # Example logic: bump expiration time or reset a timeout flag if you implement them
