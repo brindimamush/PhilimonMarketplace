@@ -1,5 +1,6 @@
 # handlers/admin_users.py
 import html
+from datetime import datetime
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -65,9 +66,21 @@ async def handle_user_actions(update: Update, context: ContextTypes.DEFAULT_TYPE
                     await context.bot.send_message(target_user.telegram_id, "✅ Your account has been reactivated. Welcome back!")
             except Exception:
                 pass 
+            
+            timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+
+            confirmation_text = (
+                f"{status_text} <b>Admin Action Executed</b>\n\n"
+                f"👤 <b>Target User:</b> {html.escape(target_user.full_name or 'N/A')}\n"
+                f"🆔 <b>Telegram ID:</b> <code>{target_user.telegram_id}</code>\n"
+                f"🏷 <b>Role:</b> {target_user.role.capitalize()}\n"
+                f"🛠 <b>Action Taken:</b> {status_text}\n"
+                f"🕒 <b>Time:</b> {timestamp}\n\n"
+                f"<i>Note: The user has been notified of this status change.</i>"
+                )
 
             await query.edit_message_text(
-                f"{query.message.text_html}\n\n<b>Update:</b> User marked as {status_text}.", 
+                text=confirmation_text,
                 reply_markup=new_keyboard,
                 parse_mode="HTML"
             )

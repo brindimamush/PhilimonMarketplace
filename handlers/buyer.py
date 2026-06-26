@@ -1,11 +1,12 @@
 # handlers/buyer.py
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters
 from database.session import SessionLocal
 from database.models import User, PurchaseRequest, Offer, Deal, SellerProfile, UserMetrics
 from keyboards.buyer import get_buyer_home_keyboard
 from config import ADMIN_TELEGRAM_ID
-from utils.helpers import get_text, get_user_lang
+from utils.helpers import get_text, get_user_lang, flag_user_to_admin
 from services.buyer_reliability_service import can_create_request
 
 # Conversation States for creating a request
@@ -27,6 +28,8 @@ async def start_purchase_request(update: Update, context: ContextTypes.DEFAULT_T
     can_create, message = can_create_request(user.id)
     if not can_create:
         await update.message.reply_text(message)
+        if "Score too low" in message:
+            await flag_user_to_admin(context, user, "Buyer score dropped to critical levels. Request creation blocked.")
         return ConversationHandler.END
     
     # New Limit Check

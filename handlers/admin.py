@@ -2,6 +2,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import asyncio
+import html
 from services.broadcast_service import safe_broadcast_to_sellers
 from utils.helpers import get_text
 from database.session import SessionLocal
@@ -178,7 +179,20 @@ async def handle_admin_deal_actions(update: Update, context: ContextTypes.DEFAUL
                 seller_metrics.completed_sales += 1
                 
             db.commit()
-            await query.edit_message_text(text=f"{query.message.text}\n\n🚚 *Status Update:* Marked as DELIVERED & closed.")
+            buyer_name = html.escape(buyer.full_name or 'N/A') if buyer else 'Unknown'
+            seller_name = html.escape(seller.full_name or 'N/A') if seller else 'Unknown'
+            
+            success_text = (
+                f"✅ <b>Deal Successfully Closed</b>\n\n"
+                f"<b>Deal ID:</b> <code>#{deal_id}</code>\n"
+                f"💰 <b>Status:</b> PAID & DELIVERED\n\n"
+                f"<b>Participants:</b>\n"
+                f"🛒 Buyer: {buyer_name} (<code>{deal.buyer_id}</code>)\n"
+                f"🏭 Seller: {seller_name} (<code>{deal.seller_id}</code>)\n\n"
+                f"<i>Automated metrics have been updated for both parties.</i>"
+            )
+            
+            await query.edit_message_text(text=success_text, parse_mode="HTML")
             
             buyer = db.query(User).filter(User.id == deal.buyer_id).first()
             seller = db.query(User).filter(User.id == deal.seller_id).first()
