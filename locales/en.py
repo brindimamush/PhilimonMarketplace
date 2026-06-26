@@ -32,4 +32,17 @@ MESSAGES = {
     "help_text": "🛠 *Marketplace Help*\n\n/menu - Show your main menu\n/language - Change your language\n/help - Show this message",
     "enter_full_name": "👤 Please enter your Full Name:",
     "seller_shop_num": "🔢 Please enter your Shop Number (e.g., X0-000X) (or 'N/A' if none):",
+    "buyer_rules": (
+        "📜 *Platform Rules: Buyer Edition*\n\n"
+        "A. Only submit requests if you genuinely intend to purchase.\n"
+        "B. Upload only product-related images and information.\n"
+        "C. Repeated abuse, spam, or non-serious requests may result in account restrictions."
+    ),
+    "seller_rules": (
+        "📜 *Platform Rules: Seller Edition*\n\n"
+        "A. Only accept requests you can genuinely fulfill.\n"
+        "B. Provide accurate pricing and product information.\n"
+        "C. Repeated failure to respond or complete accepted requests may result in account restrictions."
+    ),
+    "agree_btn": "I Agree 👍",
 }

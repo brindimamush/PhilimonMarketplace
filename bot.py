@@ -14,9 +14,9 @@ from handlers.admin_deals import show_deals_list
 # Updated imports covering new pipeline
 from handlers.registration import (
     start, cmd_menu, cmd_language, cmd_help, handle_language_selection, 
-    handle_role_selection, process_contact, seller_business_name, process_full_name, 
+    handle_role_selection, handle_rules_agreement, process_contact, seller_business_name, process_full_name, 
     seller_location, seller_category, seller_shop_number, switch_mode,
-    SELECT_LANG, SELECT_ROLE, SHARE_PHONE,FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER
+    SELECT_LANG, SELECT_ROLE,AGREE_RULES, SHARE_PHONE,FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER
 )
 from handlers.admin import handle_admin_approval, handle_admin_deal_actions
 
@@ -69,6 +69,7 @@ def main():
         states={
             SELECT_LANG: [CallbackQueryHandler(handle_language_selection, pattern="^lang_")],
             SELECT_ROLE: [CallbackQueryHandler(handle_role_selection, pattern="^role_")],
+            AGREE_RULES: [CallbackQueryHandler(handle_rules_agreement, pattern="^rules_agree$")],
             SHARE_PHONE: [MessageHandler(filters.CONTACT, process_contact)],
             FULL_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_full_name)],
             BUSINESS_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, seller_business_name)],

@@ -9,7 +9,7 @@ from utils.helpers import get_text, get_user_lang
 from config import ADMIN_TELEGRAM_ID
 
 # Expanded Conversation States
-SELECT_LANG, SELECT_ROLE, SHARE_PHONE, FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER = range(8)
+SELECT_LANG, SELECT_ROLE, AGREE_RULES, SHARE_PHONE, FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER = range(9)
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
@@ -97,7 +97,6 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
     await query.edit_message_text(get_text(lang_choice, "select_mode"), reply_markup=InlineKeyboardMarkup(keyboard))
     return SELECT_ROLE
 
-# handlers/registration.py
 
 async def handle_role_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -111,10 +110,34 @@ async def handle_role_selection(update: Update, context: ContextTypes.DEFAULT_TY
     user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
     lang = user.language if user else context.user_data.get('lang', 'en')
     
+    db.close()
+
+    rule_key = "buyer_rules" if target_role == "buyer" else "seller_rules"
+    
+    keyboard = [
+        [InlineKeyboardButton(get_text(lang, "agree_btn"), callback_data="rules_agree")]
+    ]
+    
+    await query.edit_message_text(
+        get_text(lang, rule_key), 
+        parse_mode="Markdown", 
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return AGREE_RULES
+
+async def handle_rules_agreement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    target_role = context.user_data.get('target_role')
+    
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+    lang = user.language if user else context.user_data.get('lang', 'en')
+    
     await query.message.delete()
     
-    # Smart Registration (Phase 3 Scenario A)
-    # If user is a buyer applying to be a seller and already has a phone number -> Skip to Business Name
+    # Step 3: Run target registration logic pathways after authorization agreement
     if user and user.phone and target_role == 'seller':
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -126,7 +149,6 @@ async def handle_role_selection(update: Update, context: ContextTypes.DEFAULT_TY
         
     db.close()
 
-    # Scenario B: No phone exists. Ask for Contact Verification via Telegram API
     contact_btn = [[KeyboardButton(text=get_text(lang, "share_phone"), request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(contact_btn, resize_keyboard=True, one_time_keyboard=True)
     
