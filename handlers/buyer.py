@@ -2,7 +2,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters
 from database.session import SessionLocal
-from database.models import User, PurchaseRequest, Offer, Deal, SellerProfile
+from database.models import User, PurchaseRequest, Offer, Deal, SellerProfile, UserMetrics
 from keyboards.buyer import get_buyer_home_keyboard
 from config import ADMIN_TELEGRAM_ID
 from utils.helpers import get_text, get_user_lang
@@ -84,6 +84,11 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.add(new_request)
     db.commit() # Save to get the new_request.id
 
+    metrics = db.query(UserMetrics).filter(UserMetrics.user_id == buyer.id).first()
+    if not metrics:
+        metrics = UserMetrics(user_id=buyer.id)
+        db.add(metrics)
+    metrics.total_requests += 1
     #NOTIFY THE BUYER ITS UNDER REVIEW
     await update.message.reply_text(
         "✅ Your purchase request has been submitted and is pending Admin approval.",
@@ -122,7 +127,18 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def cancel_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_user_lang(update.effective_user.id)
+    tg_id = update.effective_user.id
+    lang = get_user_lang(tg_id)
+
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == tg_id).first()
+    if user:
+        metrics = db.query(UserMetrics).filter(UserMetrics.user_id == user.id).first()
+        if metrics:
+            metrics.abandoned_requests += 1
+            db.commit()
+    db.close()
+
     await update.message.reply_text(get_text(lang, "req_cancelled"), reply_markup=get_buyer_home_keyboard(lang))
     context.user_data.clear()
     return ConversationHandler.END

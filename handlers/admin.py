@@ -165,6 +165,15 @@ async def handle_admin_deal_actions(update: Update, context: ContextTypes.DEFAUL
             req = db.query(PurchaseRequest).filter(PurchaseRequest.id == deal.request_id).first()
             if req:
                 req.status = 'CLOSED'
+
+            buyer_metrics = db.query(UserMetrics).filter(UserMetrics.user_id == deal.buyer_id).first()
+            if buyer_metrics:
+                buyer_metrics.completed_purchases += 1
+                
+            seller_metrics = db.query(UserMetrics).filter(UserMetrics.user_id == deal.seller_id).first()
+            if seller_metrics:
+                seller_metrics.completed_sales += 1
+                
             db.commit()
             await query.edit_message_text(text=f"{query.message.text}\n\n🚚 *Status Update:* Marked as DELIVERED & closed.")
             
