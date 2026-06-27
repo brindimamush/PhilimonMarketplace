@@ -12,11 +12,16 @@ from config import ADMIN_TELEGRAM_ID
 SELECT_LANG, SELECT_ROLE, AGREE_RULES, SHARE_PHONE, FULL_NAME, BUSINESS_NAME, LOCATION, CATEGORY, SHOP_NUMBER = range(9)
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id == ADMIN_TELEGRAM_ID:
+        return  # Admin has no language preference UI
     lang = get_user_lang(update.effective_user.id)
     await update.message.reply_text(get_text(lang, "help_text"), parse_mode="Markdown")
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
+    if telegram_id == ADMIN_TELEGRAM_ID:
+        from handlers.admin_menu import admin_menu
+        return await admin_menu(update, context)
     db = SessionLocal()
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     
@@ -36,6 +41,8 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point for users explicitly requesting a language change."""
+    if update.effective_user.id == ADMIN_TELEGRAM_ID:
+        return  # Admin has no language preference UI
     keyboard = [
         [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
          InlineKeyboardButton("🇪🇹 አማርኛ", callback_data="lang_am")]
