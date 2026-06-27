@@ -15,7 +15,7 @@ def get_admin_main_keyboard():
 def get_user_profile_keyboard(user_id: int, is_suspended: bool):
     susp_btn = InlineKeyboardButton("✅ Unsuspend", callback_data=f"adm_unsuspend_{user_id}") if is_suspended else InlineKeyboardButton("⛔ Suspend", callback_data=f"adm_suspend_{user_id}")
     keyboard = [
-        [susp_btn, InlineKeyboardButton("🚫 Ban", callback_data=f"adm_ban_{user_id}")],
+        [susp_btn],
         [InlineKeyboardButton("📜 History", callback_data=f"adm_hist_{user_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)

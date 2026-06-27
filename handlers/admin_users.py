@@ -24,7 +24,7 @@ async def handle_user_actions(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
         parts = data.split("_")
-        action_type = parts[1]  # 'suspend', 'unsuspend', 'ban', 'hist'
+        action_type = parts[1]  # 'suspend', 'unsuspend', 'hist'
         target_user_id = int(parts[2])
 
         target_user = db.query(User).filter(User.id == target_user_id).first()
@@ -36,7 +36,7 @@ async def handle_user_actions(update: Update, context: ContextTypes.DEFAULT_TYPE
         if target_user.telegram_id == ADMIN_TELEGRAM_ID:
             await query.answer("⛔ You cannot take action on the admin account.", show_alert=True)
             return
-        if action_type in ["suspend", "unsuspend", "ban"]:
+        if action_type in ["suspend", "unsuspend"]:
             if action_type == "suspend":
                 if metrics: metrics.suspended = True
                 target_user.status = 'suspended'
@@ -45,11 +45,7 @@ async def handle_user_actions(update: Update, context: ContextTypes.DEFAULT_TYPE
                 if metrics: metrics.suspended = False
                 target_user.status = 'active'
                 status_text = "✅ Active"
-            elif action_type == "ban":
-                if metrics: metrics.suspended = True
-                target_user.status = 'banned'
-                status_text = "🚫 Banned"
-
+            
             new_action = AdminAction(
                 admin_id=admin_user.id,
                 target_user_id=target_user_id,
@@ -59,7 +55,7 @@ async def handle_user_actions(update: Update, context: ContextTypes.DEFAULT_TYPE
             db.add(new_action)
             db.commit()
 
-            new_keyboard = get_user_profile_keyboard(target_user_id, is_suspended=(action_type in ["suspend", "ban"]))
+            new_keyboard = get_user_profile_keyboard(target_user_id, is_suspended=(action_type in ["suspend"]))
             
             try:
                 if action_type == "suspend":

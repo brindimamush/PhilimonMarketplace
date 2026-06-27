@@ -140,7 +140,7 @@ def main():
 
     application.add_handler(CallbackQueryHandler(
         handle_user_actions, 
-        pattern="^(adm_suspend_|adm_unsuspend_|adm_ban_|adm_hist_)"
+        pattern="^(adm_suspend_|adm_unsuspend_|adm_hist_)"
     ))
     application.add_handler(CommandHandler("admin", admin_menu))
     application.add_handler(CommandHandler("user", search_user))
