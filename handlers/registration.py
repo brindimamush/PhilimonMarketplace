@@ -46,14 +46,27 @@ async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
-    
+    db = SessionLocal()
     if telegram_id == ADMIN_TELEGRAM_ID:
+        # Check if admin is in the database, if not, add them
+        admin = db.query(User).filter(User.telegram_id == telegram_id).first()
+        if not admin:
+            new_admin = User(
+                telegram_id=telegram_id,
+                username=update.effective_user.username,
+                role='admin',
+                status='active'
+            )
+            db.add(new_admin)
+            db.commit()
+            
         await update.message.reply_text(
             "👋 Welcome, Admin.\nUse /admin to open the dashboard or /dashboard for stats."
         )
+        db.close()
         return ConversationHandler.END
 
-    db = SessionLocal()
+    
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     
     # User Recovery Protocol
