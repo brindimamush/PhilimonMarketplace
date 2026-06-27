@@ -33,7 +33,9 @@ async def handle_user_actions(update: Update, context: ContextTypes.DEFAULT_TYPE
         if not target_user:
             await query.message.reply_text("❌ User not found in database.")
             return
-
+        if target_user.telegram_id == ADMIN_TELEGRAM_ID:
+            await query.answer("⛔ You cannot take action on the admin account.", show_alert=True)
+            return
         if action_type in ["suspend", "unsuspend", "ban"]:
             if action_type == "suspend":
                 if metrics: metrics.suspended = True

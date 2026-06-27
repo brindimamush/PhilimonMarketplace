@@ -1,7 +1,8 @@
 # bot.py
 import logging
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import TypeHandler,ApplicationHandlerStop,ApplicationBuilder, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, ContextTypes
+from utils.access_guard_middleware import suspension_middleware
 from config import BOT_TOKEN
 from services.scheduler import start_scheduler
 from handlers.admin import admin_dashboard
@@ -62,6 +63,9 @@ async def master_admin_router(update: Update, context: ContextTypes.DEFAULT_TYPE
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     start_scheduler()
+
+    application.add_handler(TypeHandler(Update, suspension_middleware), group=-1)
+   
     # Core Onboarding Unified Flow
     onboarding_conv = ConversationHandler(
         entry_points=[

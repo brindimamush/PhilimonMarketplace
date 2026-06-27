@@ -46,6 +46,13 @@ async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
+    
+    if telegram_id == ADMIN_TELEGRAM_ID:
+        await update.message.reply_text(
+            "👋 Welcome, Admin.\nUse /admin to open the dashboard or /dashboard for stats."
+        )
+        return ConversationHandler.END
+
     db = SessionLocal()
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     
