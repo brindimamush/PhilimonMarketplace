@@ -6,7 +6,7 @@ from utils.access_guard_middleware import suspension_middleware
 from config import BOT_TOKEN
 from services.scheduler import start_scheduler
 from handlers.admin import admin_dashboard
-from handlers.admin_users import search_user, handle_user_actions, show_users_list, show_suspended_users_list
+from handlers.admin_users import search_user, handle_user_actions, show_users_list, show_suspended_users_list, show_pending_sellers_list, view_pending_seller
 from handlers.admin_menu import admin_menu, handle_main_menu_callbacks
 from handlers.admin_requests import handle_requests_callbacks
 from handlers.admin_deals import show_deals_list
@@ -56,6 +56,14 @@ async def master_admin_router(update: Update, context: ContextTypes.DEFAULT_TYPE
         elif data == "adm_menu_susp" or data.startswith("adm_susp_page_"):
             page = int(data.split("_")[-1]) if "page_" in data else 0
             await show_suspended_users_list(update, context, page)
+        elif data == "adm_menu_pend" or data.startswith("adm_pend_page_"):
+            page = int(data.split("_")[-1]) if "page_" in data else 0
+            await show_pending_sellers_list(update, context, page)
+            
+        elif data.startswith("adm_pend_view_"):
+            user_id = int(data.replace("adm_pend_view_", ""))
+            await view_pending_seller(update, context, user_id)
+
     except Exception as e:
         logging.getLogger(__name__).error(f"Error in master_admin_router: {e}")
         await query.message.reply_text("❌ An error occurred processing this dashboard view.")
@@ -135,7 +143,7 @@ def main():
 
     application.add_handler(CallbackQueryHandler(
         master_admin_router, 
-        pattern="^(adm_menu_|adm_usr_page_|adm_deal_page_)"
+        pattern="^(adm_menu_|adm_usr_page_|adm_deal_page_|adm_susp_page_|adm_pend_page_|adm_pend_view_)"
     ))
 
     application.add_handler(CallbackQueryHandler(

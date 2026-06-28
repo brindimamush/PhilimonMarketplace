@@ -5,7 +5,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database.session import db_transaction
-from database.models import User, UserMetrics, AdminAction
+from database.models import User, UserMetrics, AdminAction, SellerProfile
 from keyboards.admin import get_user_profile_keyboard
 from config import ADMIN_TELEGRAM_ID
 from services.pagination_service import paginate_query, build_pagination_keyboard
@@ -211,3 +211,76 @@ async def show_suspended_users_list(update: Update, context: ContextTypes.DEFAUL
     except Exception as e:
         logger.error(f"Error displaying suspended users: {e}")
         await update.callback_query.edit_message_text("❌ Error loading suspended users.")
+
+
+async def show_pending_sellers_list(update: Update, context: ContextTypes.DEFAULT_TYPE, page: int = 0):
+    try:
+        with db_transaction() as db:
+            # Fetch pending sellers
+            query = db.query(User).filter(User.status == 'pending').order_by(User.created_at.desc())
+            pending_users, total_pages, total_items = paginate_query(query, page, page_size=5)
+
+            if not pending_users:
+                reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_menu_main")]])
+                await update.callback_query.edit_message_text("📭 <b>No pending seller requests currently.</b>", parse_mode="HTML", reply_markup=reply_markup)
+                return
+
+            text = f"⏳ <b>Pending Seller Requests</b>\nPage {page + 1} of {total_pages} (Total: {total_items})\n\n"
+            keyboard = []
+            
+            for u in pending_users:
+                profile = db.query(SellerProfile).filter(SellerProfile.user_id == u.id).first()
+                biz_name = html.escape(profile.business_name) if profile and profile.business_name else "N/A"
+                
+                text += f"👤 <b>{html.escape(u.full_name or 'N/A')}</b> (<code>{u.telegram_id}</code>)\n🏢 Business: {biz_name}\n\n"
+                # Add a button to review this specific user
+                keyboard.append([InlineKeyboardButton(f"👁 Review: {u.full_name or u.telegram_id}", callback_data=f"adm_pend_view_{u.id}")])
+
+        # Add pagination and back buttons
+        pagination_btns = build_pagination_keyboard("adm_pend_page", page, total_pages)
+        if pagination_btns:
+            keyboard.extend(pagination_btns)
+        keyboard.append([InlineKeyboardButton("⬅️ Back to Dashboard", callback_data="adm_menu_main")])
+        
+        await update.callback_query.edit_message_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    except Exception as e:
+        logger.error(f"Error displaying pending sellers: {e}")
+        await update.callback_query.edit_message_text("❌ Error loading pending sellers.")
+
+
+async def view_pending_seller(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    try:
+        with db_transaction() as db:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or user.status != 'pending':
+                await update.callback_query.answer("⚠️ User is no longer pending.", show_alert=True)
+                # Redirect back to the list
+                return await show_pending_sellers_list(update, context, 0)
+            
+            profile = db.query(SellerProfile).filter(SellerProfile.user_id == user.id).first()
+            
+            text = (
+                f"🆕 <b>Pending Seller Details</b>\n\n"
+                f"<b>Name:</b> {html.escape(user.full_name or 'N/A')}\n"
+                f"<b>Business:</b> {html.escape(profile.business_name if profile else 'N/A')}\n"
+                f"<b>Shop No:</b> {html.escape(profile.shop_number if profile else 'N/A')}\n"
+                f"<b>Category:</b> {html.escape(profile.category if profile else 'N/A')}\n"
+                f"<b>Location:</b> {html.escape(profile.location if profile else 'N/A')}\n"
+                f"<b>Phone:</b> +{html.escape(user.phone or 'N/A')}"
+            )
+            
+            # Hooks right into your existing `adm_app_` and `adm_rej_` logic handled in admin.py
+            keyboard = [
+                [InlineKeyboardButton("Approve ✅", callback_data=f"adm_app_{user.id}"),
+                 InlineKeyboardButton("Reject ❌", callback_data=f"adm_rej_{user.id}")],
+                [InlineKeyboardButton("⬅️ Back to List", callback_data="adm_pend_page_0")]
+            ]
+            
+            await update.callback_query.edit_message_text(
+                text=text,
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+    except Exception as e:
+        logger.error(f"Error viewing pending seller {user_id}: {e}")
+        await update.callback_query.answer("❌ Error loading seller details.", show_alert=True)

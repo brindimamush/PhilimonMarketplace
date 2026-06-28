@@ -58,7 +58,7 @@ async def handle_admin_approval(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.edit_message_text(text=f"{query.message.text}\n\n❌ Rejected.")
                 await context.bot.send_message(
                     chat_id=tg_id,
-                    text="❌ Your seller profile application was rejected by the admin."
+                    text="❌ Your seller profile application was rejected by the admin.\n Please apply with a correct information using /start"
                 )
         except Exception as e:
             logger.error(f"adm_rej_ failed for user {user_id}: {e}")

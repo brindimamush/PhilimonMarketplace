@@ -8,7 +8,8 @@ def get_admin_main_keyboard():
         [InlineKeyboardButton("🤝 Deals", callback_data="adm_menu_deals"),
          InlineKeyboardButton("📊 Statistics", callback_data="adm_menu_stats")],
         [InlineKeyboardButton("⛔ Suspended", callback_data="adm_menu_susp"),
-         InlineKeyboardButton("🔍 Search", callback_data="adm_menu_search")]
+         InlineKeyboardButton("⏳ Pending Sellers", callback_data="adm_menu_pend")],
+        [InlineKeyboardButton("🔍 Search", callback_data="adm_menu_search")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
